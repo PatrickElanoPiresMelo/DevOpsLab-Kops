@@ -1,0 +1,16 @@
+---
+# Kops e Kubectl Version
+kops_version: 1.9.1
+kubectl_version: v1.10.4
+
+# AWS Credentials
+id: 
+key: 
+
+# AWS S3 State Kops
+bucket: 
+
+# Kops Configuration
+zone: 
+domain: 
+

@@ -1,0 +1,57 @@
+---
+- name: Download do Kops
+  get_url:
+    url: https://github.com/kubernetes/kops/releases/download/{{ kops_version }}/kops-linux-amd64
+    dest: /usr/local/bin/kops
+    mode: 0755
+
+- name: Download do Kubectl
+  get_url:
+    url: https://storage.googleapis.com/kubernetes-release/release/{{ kubectl_version }}/bin/linux/amd64/kubectl
+    dest: /usr/local/bin/kubectl
+    mode: 0755
+
+- name: Criação da Chave SSH
+  user:
+    name: root
+    generate_ssh_key: yes
+    ssh_key_bits: 2048
+    ssh_key_file: .ssh/id_rsa
+
+- name: Criação de um Bucket no AWS S3 
+  command: aws s3api create-bucket --bucket {{ bucket }} --acl private
+
+- name: Provisionamento do Kubernetes via Kops com 1 Node
+  command: kops create cluster -t private --node-count 1 --zones {{ zone }} --networking weave --name {{ domain }} --dns private --cloud aws
+
+- name: Criação da Chave para logar no Cluster
+  command: kops create secret --name {{ domain }} sshpublickey admin -i ~/.ssh/id_rsa.pub
+
+- name: Instanciando o Cluster Kubernetes
+  command: kops update cluster {{ domain }} --yes
+
+- name: Aguardando Provisionamento do Cluster e Artefatos na AWS
+  shell: kops validate cluster
+  register: result
+  until: result.stdout.find("is ready") != -1
+  retries: 10
+  delay: 60
+
+- name: Criando um objeto para armazenar a senha do Banco de Dados
+  command: kubectl create secret generic mysql-pass --from-literal=password=idwall
+
+- name: Deploy do MYSQL
+  command: kubectl create -f roles/kops/templates/mysql-deployment.yaml
+
+- name: Deploy do WordPress
+  command: kubectl create -f roles/kops/templates/wordpress-deployment.yaml
+
+- name: Aguardando conclusão do Deploy para exibir o External IP
+  shell: kubectl get svc -o wide | grep wordpress | head -1 | awk '{ print $4}'
+  register: result
+  until: result.stdout.find("amazonaws.com") != -1
+  retries: 5
+  delay: 10
+
+- name: Use o endereço abaixo para cadastrar em seu DNS
+  debug: msg={{ result.stdout }}

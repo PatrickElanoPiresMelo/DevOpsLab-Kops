@@ -1,0 +1,14 @@
+---
+- name: Instalação do Kubernetes via Kops e Deploy de um WordPress
+  hosts: localhost
+  user: root
+  become: yes
+
+  roles:
+    - destroy
+#    - kops
+  
+  environment:
+    AWS_ACCESS_KEY_ID: "{{ id }}"
+    AWS_SECRET_ACCESS_KEY: "{{ key }}"
+    KOPS_STATE_STORE: "s3://{{ bucket }}"
